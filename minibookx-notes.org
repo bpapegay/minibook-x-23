@@ -4,7 +4,7 @@
 
 wifi doesn't work until i add theses options in =/etc/modprobe.d/iwl.conf=
 
-#+begin_src
+#+begin_src org :tangle iwl.conf
 options iwlwifi 11n_disable=1 swcrypto=0 bt_coex_active=0 power_save=0
 options iwlwifi uapsd_disable=1
 options iwlmvm power_scheme=1
@@ -27,7 +27,7 @@ doesn't install properly. Boot into grub shell but no menu.
 
 I have to enter the following commands to boot the kernel.
 
-#+begin_src
+#+begin_src org
   set root=(hd0,gpt3)
   linux /boot/vmlinux-linux root=/dev/nvme0n1p3 fbcon=rotate:1
   initrd /boot/intel-ucode.img vmlinuz-linux.img
@@ -60,16 +60,16 @@ cat /sys/power/mem_sleep
 
 * screen orientation
 
-Orientation is not correct at login. I use lightdm, so
-I created a =display-setup.sh= script :
+Orientation is not correct at login. I use lightdm, so I created a
+=display-setup.sh= script in =/etc/lightdm= directory:
 
-#+begin_src sh
+#+begin_src sh :tangle display-setup.sh
   #!/bin/bash
   xrandr -o right
   exit 0
 #+end_src
 
-that is called in lightdm.conf configuration file, by uncommenting this line :
+you have to add it in lightdm.conf configuration file, by uncommenting this line :
 
 #+begin_src sh
   display-setup-script=/etc/lightdm/display-setup.sh
@@ -105,7 +105,8 @@ applied to pointer event :
       xinput set-prop 9 --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
     #+end_src
 
-** multitouch
+** FIXME multitouch (not functionnal)
+
 bus 0x18 vendor 0x416 product 0x2396 version 0x2040
 #+begin_src shell
 echo 18 416 2396 4 > /sys/module/hid_multitouch/drivers/hid\:hid-multitouch/new_id
@@ -114,7 +115,6 @@ echo 18 416 2396 4 > /sys/module/hid_multitouch/drivers/hid\:hid-multitouch/new_
 
 * sensor écran
 
-- une url intéressante https://xdaforums.com/t/chuwi-hi10-air-linux-installation-guide.3915804/page-6
 - acpi contains a device MDA6655 which seems working.
   - adding "mda6655" in kernel source's =mxc4005.c= file made it functionnal.
   - after modprobing mxc4005, a new device appear : =/sys/bus/iio/devices/device0=
@@ -278,7 +278,9 @@ done < <(stdbuf -oL monitor-sensor)
 
 * lightdm tap to click
 
-#+begin_src org
+create a file =/etc/X11/xorg.conf.d/40-libinput.conf=
+
+#+begin_src org :tangle 40-libinput.conf
   Section "InputClass"
      Identifier "libinput touchpad catchall"
      MatchIsTouchpad "on"
