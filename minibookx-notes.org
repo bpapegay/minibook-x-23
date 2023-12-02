@@ -1,0 +1,327 @@
+#+title: minibook x notes
+
+* wifi
+
+wifi doesn't work until i add theses options in =/etc/modprobe.d/iwl.conf=
+
+#+begin_src
+options iwlwifi 11n_disable=1 swcrypto=0 bt_coex_active=0 power_save=0
+options iwlwifi uapsd_disable=1
+options iwlmvm power_scheme=1
+#+end_src
+
+
+* bluetooth
+
+fix (on linux arch)
+
+#+begin_src sh
+sudo ln -s /usr/lib/firmware/intel/ibt-1040-4150.ddc.zst /usr/lib/firmware/intel/ibt-0040-1050.ddc.zst
+sudo ln -s /usr/lib/firmware/intel/ibt-1040-4150.sfi.zst /usr/lib/firmware/intel/ibt-0040-1050.sfi.zst
+#+end_src
+
+
+* grub
+
+doesn't install properly. Boot into grub shell but no menu.
+
+I have to enter the following commands to boot the kernel.
+
+#+begin_src
+  set root=(hd0,gpt3)
+  linux /boot/vmlinux-linux root=/dev/nvme0n1p3 fbcon=rotate:1
+  initrd /boot/intel-ucode.img vmlinuz-linux.img
+  boot
+#+end_src
+
+Install grub-theme and grub-customizer have fixed the problem.
+
+
+
+* acpi and suspend state
+
+by default, the selected mem suspend state is =s2= :
+
+#+begin_src shell :noeval
+cat /sys/power/mem_sleep
+#+end_src
+
+#+RESULTS:
+: [s2idle] deep
+
+*** adding =mem_sleep_default=deep= to grub config.
+
+#+begin_src shell
+cat /sys/power/mem_sleep
+#+end_src
+
+#+RESULTS:
+: s2idle [deep]
+
+* screen orientation
+
+Orientation is not correct at login. I use lightdm, so
+I created a =display-setup.sh= script :
+
+#+begin_src sh
+  #!/bin/bash
+  xrandr -o right
+  exit 0
+#+end_src
+
+that is called in lightdm.conf configuration file, by uncommenting this line :
+
+#+begin_src sh
+  display-setup-script=/etc/lightdm/display-setup.sh
+#+end_src
+
+
+* touchscreen
+
+** rotation
+
+In order to properly calibrate touchscreen, a transformation must be
+applied to pointer event :
+
+- first determine pointer device :
+
+  #+begin_src sh
+    xinput list
+  #+end_src
+
+- applied matrix tranformation to relevant device :
+
+  - portrait mode
+
+    #+begin_src sh
+      xrandr -o 3
+      xinput set-prop 9 --type=float "Coordinate Transformation Matrix" 0 1 0 -1 0 1 0 0 1
+    #+end_src
+
+  - tablet mode
+
+    #+begin_src sh
+      xrandr -o 0
+      xinput set-prop 9 --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
+    #+end_src
+
+** multitouch
+bus 0x18 vendor 0x416 product 0x2396 version 0x2040
+#+begin_src shell
+echo 18 416 2396 4 > /sys/module/hid_multitouch/drivers/hid\:hid-multitouch/new_id
+#+end_src
+
+
+* sensor écran
+
+- une url intéressante https://xdaforums.com/t/chuwi-hi10-air-linux-installation-guide.3915804/page-6
+- acpi contains a device MDA6655 which seems working.
+  - adding "mda6655" in kernel source's =mxc4005.c= file made it functionnal.
+  - after modprobing mxc4005, a new device appear : =/sys/bus/iio/devices/device0=
+- then :
+  #+begin_src shell :results raw pp
+udevadm info --export-db | grep iio
+  #+end_src
+
+  #+RESULTS:
+  #+begin_example
+  P: /devices/pci0000:00/0000:00:15.1/i2c_designware.1/i2c-13/i2c-MDA6655:00/iio:device0
+  M: iio:device0
+  U: iio
+  T: iio_device
+  N: iio:device0
+  E: DEVPATH=/devices/pci0000:00/0000:00:15.1/i2c_designware.1/i2c-13/i2c-MDA6655:00/iio:device0
+  E: SUBSYSTEM=iio
+  E: DEVNAME=/dev/iio:device0
+  E: DEVTYPE=iio_device
+  E: IIO_SENSOR_PROXY_TYPE=iio-poll-accel iio-buffer-accel
+  E: SYSTEMD_WANTS=iio-sensor-proxy.service
+  #+end_example
+- =monitor-sensor= of =iio-sensor-proxy= package print theses orientations :
+  - right-up
+  - normal
+  - bottom-up
+  - left-up
+- gdbus
+  #+begin_src shell :results raw pp
+gdbus introspect --system --dest net.hadess.SensorProxy --object-path /net/hadess/SensorProxy
+  #+end_src
+
+  #+RESULTS:
+  #+begin_example
+  node /net/hadess/SensorProxy {
+    interface org.freedesktop.DBus.Properties {
+      methods:
+        Get(in  s interface_name,
+            in  s property_name,
+            out v value);
+        GetAll(in  s interface_name,
+               out a{sv} properties);
+        Set(in  s interface_name,
+            in  s property_name,
+            in  v value);
+      signals:
+        PropertiesChanged(s interface_name,
+                          a{sv} changed_properties,
+                          as invalidated_properties);
+      properties:
+    };
+    interface org.freedesktop.DBus.Introspectable {
+      methods:
+        Introspect(out s xml_data);
+      signals:
+      properties:
+    };
+    interface org.freedesktop.DBus.Peer {
+      methods:
+        Ping();
+        GetMachineId(out s machine_uuid);
+      signals:
+      properties:
+    };
+    interface net.hadess.SensorProxy {
+      methods:
+        ClaimAccelerometer();
+        ReleaseAccelerometer();
+        ClaimLight();
+        ReleaseLight();
+        ClaimProximity();
+        ReleaseProximity();
+      signals:
+      properties:
+        readonly b HasAccelerometer = true;
+        readonly s AccelerometerOrientation = 'right-up';
+        readonly b HasAmbientLight = false;
+        readonly s LightLevelUnit = 'lux';
+        readonly d LightLevel = 0.0;
+        readonly b HasProximity = false;
+        readonly b ProximityNear = false;
+    };
+    node Compass {
+    };
+  };
+  #+end_example
+
+- auto rotate script
+
+#+begin_src shell :tangle autorotate.sh
+#!/bin/bash
+
+SCREEN="DSI-1"
+XINPUT=("pointer:Goodix Capacitive TouchScreen")
+DEVICES=("XXXX0000:05 0911:5288 Touchpad" "AT Translated Set 2 keyboard")
+
+#uses the values output by monitor-sensor to call the rotate function
+function rotate_ms {
+    case $1 in
+        "normal")
+            rotate 0
+            disable_devices
+            ;;
+        "right-up")
+            rotate 1
+            enable_devices
+            ;;
+        "bottom-up")
+            rotate 2
+            disable_devices
+            ;;
+        "left-up")
+            rotate 3
+            disable_devices
+            ;;
+    esac
+}
+
+function disable_devices {
+    for dev in ${!DEVICES[@]};
+    do
+        echo "disabling ${DEVICES[$dev]}"
+        xinput disable "${DEVICES[$dev]}"
+    done
+}
+
+function enable_devices {
+    for dev in ${!DEVICES[@]};
+    do
+        xinput enable "${DEVICES[$dev]}"
+    done
+}
+
+function rotate {
+    O_NAMES=("normal" "right" "inverted" "left")
+    COORDS=("1, 0, 0, 0, 1, 0, 0, 0, 1" "0, 1, 0, -1, 0, 1, 0, 0, 1" "-1, 0, 1, 0, -1, 1, 0, 0, 1" "0, -1, 1, 1, 0, 0, 0, 0, 1")
+    W_NAMES=("none" "cw" "half" "ccw")
+
+    O_NO=$1
+
+    TARGET_ORIENTATION=${O_NAMES[$O_NO]}
+
+    echo "Rotating to" $TARGET_ORIENTATION
+
+    #Rotate the screen
+    xrandr --output $SCREEN --rotate $TARGET_ORIENTATION
+
+    #Rotate libinput driver input devices
+    for i in "${XINPUT[@]}"
+    do
+        xinput set-prop "$i" "Coordinate Transformation Matrix" ${COORDS[$O_NO]}
+    done
+}
+
+while IFS='$\n' read -r line; do
+    rotation="$(echo $line | sed -En "s/^.*orientation changed: (.*)/\1/p")"
+    [[ !  -z  $rotation  ]] && rotate_ms $rotation
+done < <(stdbuf -oL monitor-sensor)
+  #+end_src
+
+
+* lightdm tap to click
+
+#+begin_src org
+  Section "InputClass"
+     Identifier "libinput touchpad catchall"
+     MatchIsTouchpad "on"
+     MatchDevicePath "/dev/input/event*"
+     Driver "libinput"
+     Option "Tapping" "on"
+  EndSection
+#+end_src
+
+
+
+* remove tearing
+
+** using git modesetting
+
+** not functionnal :
+Intel iGPUs
+File: /etc/X11/xorg.conf.d/20-intel-gpu.conf
+#+begin_src org
+
+Section "Device"
+   Identifier  "Intel Graphics"
+   Driver      "modesetting"
+   Option      "TearFree"  "true"
+EndSection
+#+end_src
+
+
+* not tested
+
+- kernel params max_cstate and i915 enable_psr=0 are both red herrings.
+- the root cause of the ‘display tearing / wake-after-sleep /
+  corruption’ is the panel being put into an unsuppored timing mode by
+  various modesettings invoked by the kernel drm…
+- not that I’ve solved the underlying issue ( I’m working on a custom
+  edid file but I don’t have a lot of time )… you can alleviate the
+  symptoms by invoking:
+  #+begin_src sh
+    xrandr --output DSI-1 --off; sleep 2; xrandr --output DSI-1 --mode 1200x1920 --rotate right
+  #+end_src
+- the wifi can be fixed by adding “options iwlwifi disable_11ax=true”
+  to /etc/modprobe.d/iwlwifi.conf and regenerating your initramfs.
+
+#+begin_src sh
+  915.enable_fbc=0 in the grub config
+#+end_src
