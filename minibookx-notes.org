@@ -42,7 +42,7 @@ Install grub-theme and grub-customizer have fixed the problem.
 
 by default, the selected mem suspend state is =s2= :
 
-#+begin_src shell :noeval
+#+begin_src shell :noeval :exports both
 cat /sys/power/mem_sleep
 #+end_src
 
@@ -51,7 +51,7 @@ cat /sys/power/mem_sleep
 
 *** adding =mem_sleep_default=deep= to grub config.
 
-#+begin_src shell
+#+begin_src shell :exports both
 cat /sys/power/mem_sleep
 #+end_src
 
