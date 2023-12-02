@@ -113,6 +113,97 @@ echo 18 416 2396 4 > /sys/module/hid_multitouch/drivers/hid\:hid-multitouch/new_
 #+end_src
 
 
+
+** separate mouse and touchscreen
+
+#+begin_src shell :exports both :results pp
+xinput list
+#+end_src
+
+#+RESULTS:
+#+begin_example
+⎡ Virtual core pointer                    	id=2	[master pointer  (3)]
+⎜   ↳ Virtual core XTEST pointer              	id=4	[slave  pointer  (2)]
+⎜   ↳ Goodix Capacitive TouchScreen           	id=9	[slave  pointer  (2)]
+⎜   ↳ XXXX0000:05 0911:5288 Mouse             	id=10	[slave  pointer  (2)]
+⎜   ↳ XXXX0000:05 0911:5288 Touchpad          	id=11	[slave  pointer  (2)]
+⎣ Virtual core keyboard                   	id=3	[master keyboard (2)]
+    ↳ Virtual core XTEST keyboard             	id=5	[slave  keyboard (3)]
+    ↳ Video Bus                               	id=6	[slave  keyboard (3)]
+    ↳ Power Button                            	id=7	[slave  keyboard (3)]
+    ↳ Sleep Button                            	id=8	[slave  keyboard (3)]
+    ↳ Intel HID events                        	id=12	[slave  keyboard (3)]
+    ↳ Intel HID 5 button array                	id=13	[slave  keyboard (3)]
+    ↳ Goodix Capacitive TouchScreen           	id=15	[slave  keyboard (3)]
+    ↳ AT Translated Set 2 keyboard            	id=14	[slave  keyboard (3)]
+#+end_example
+
+1. create a new master pointer
+   #+begin_src shell :exports both
+xinput create-master touchscreen
+   #+end_src
+
+   #+RESULTS:
+
+   this creates a new master pointer / keyboard pair
+
+   #+begin_src shell :export both :results pp
+xinput list
+   #+end_src
+
+   #+RESULTS:
+   #+begin_example
+   ⎡ Virtual core pointer                    	id=2	[master pointer  (3)]
+   ⎜   ↳ Virtual core XTEST pointer              	id=4	[slave  pointer  (2)]
+   ⎜   ↳ Goodix Capacitive TouchScreen           	id=9	[slave  pointer  (2)]
+   ⎜   ↳ XXXX0000:05 0911:5288 Mouse             	id=10	[slave  pointer  (2)]
+   ⎜   ↳ XXXX0000:05 0911:5288 Touchpad          	id=11	[slave  pointer  (2)]
+   ⎣ Virtual core keyboard                   	id=3	[master keyboard (2)]
+       ↳ Virtual core XTEST keyboard             	id=5	[slave  keyboard (3)]
+       ↳ Video Bus                               	id=6	[slave  keyboard (3)]
+       ↳ Power Button                            	id=7	[slave  keyboard (3)]
+       ↳ Sleep Button                            	id=8	[slave  keyboard (3)]
+       ↳ Intel HID events                        	id=12	[slave  keyboard (3)]
+       ↳ Intel HID 5 button array                	id=13	[slave  keyboard (3)]
+       ↳ Goodix Capacitive TouchScreen           	id=15	[slave  keyboard (3)]
+       ↳ AT Translated Set 2 keyboard            	id=14	[slave  keyboard (3)]
+   ⎡ touchscreen pointer                     	id=16	[master pointer  (17)]
+   ⎜   ↳ touchscreen XTEST pointer               	id=18	[slave  pointer  (16)]
+   ⎣ touchscreen keyboard                    	id=17	[master keyboard (16)]
+       ↳ touchscreen XTEST keyboard              	id=19	[slave  keyboard (17)]
+   #+end_example
+
+2. attach touchscreen to new master
+   #+begin_src shell :exports both :results pp
+xinput reattach 9 16
+xinput reattach 15 17
+xinput list
+   #+end_src
+
+   #+RESULTS:
+   #+begin_example
+   ⎡ Virtual core pointer                    	id=2	[master pointer  (3)]
+   ⎜   ↳ Virtual core XTEST pointer              	id=4	[slave  pointer  (2)]
+   ⎜   ↳ XXXX0000:05 0911:5288 Mouse             	id=10	[slave  pointer  (2)]
+   ⎜   ↳ XXXX0000:05 0911:5288 Touchpad          	id=11	[slave  pointer  (2)]
+   ⎣ Virtual core keyboard                   	id=3	[master keyboard (2)]
+       ↳ Virtual core XTEST keyboard             	id=5	[slave  keyboard (3)]
+       ↳ Video Bus                               	id=6	[slave  keyboard (3)]
+       ↳ Power Button                            	id=7	[slave  keyboard (3)]
+       ↳ Sleep Button                            	id=8	[slave  keyboard (3)]
+       ↳ Intel HID events                        	id=12	[slave  keyboard (3)]
+       ↳ Intel HID 5 button array                	id=13	[slave  keyboard (3)]
+       ↳ AT Translated Set 2 keyboard            	id=14	[slave  keyboard (3)]
+   ⎡ touchscreen pointer                     	id=16	[master pointer  (17)]
+   ⎜   ↳ Goodix Capacitive TouchScreen           	id=9	[slave  pointer  (16)]
+   ⎜   ↳ touchscreen XTEST pointer               	id=18	[slave  pointer  (16)]
+   ⎣ touchscreen keyboard                    	id=17	[master keyboard (16)]
+       ↳ Goodix Capacitive TouchScreen           	id=15	[slave  keyboard (17)]
+       ↳ touchscreen XTEST keyboard              	id=19	[slave  keyboard (17)]
+   #+end_example
+
+
+
 * sensor écran
 
 - acpi contains a device MDA6655 which seems working.
