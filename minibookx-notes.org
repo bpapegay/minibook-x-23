@@ -98,6 +98,8 @@ applied to pointer event :
       xinput set-prop 9 --type=float "Coordinate Transformation Matrix" 0 1 0 -1 0 1 0 0 1
     #+end_src
 
+    #+RESULTS:
+
   - tablet mode
 
     #+begin_src sh
@@ -221,7 +223,7 @@ udevadm info --export-db | grep iio
   U: iio
   T: iio_device
   N: iio:device0
-  E: DEVPATH=/devices/pci0000:00/0000:00:15.1/i2c_designware.1/i2c-13/i2c-MDA6655:00/iio:device0
+  E: DEVPATH=/devices/pci0000:00/0000:00:15.1/i2c_designware.1/i2c-13/i2c-MDA6655:00/iio:device0/
   E: SUBSYSTEM=iio
   E: DEVNAME=/dev/iio:device0
   E: DEVTYPE=iio_device
@@ -383,11 +385,13 @@ create a file =/etc/X11/xorg.conf.d/40-libinput.conf=
 
 
 
-* remove tearing
+* graphic drivers
 
 ** using git modesetting
+compile xorg-server-git from AUR seems to fix the problem in conjonction with
+next section.
 
-** not functionnal :
+** xorg server parameter
 Intel iGPUs
 File: /etc/X11/xorg.conf.d/20-intel-gpu.conf
 #+begin_src org
