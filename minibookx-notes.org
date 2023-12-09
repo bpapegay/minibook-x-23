@@ -34,7 +34,7 @@ I have to enter the following commands to boot the kernel.
   boot
 #+end_src
 
-Install grub-theme and grub-customizer have fixed the problem.
+Install =grub-theme= and =grub-customizer= have fixed the problem.
 
 
 
@@ -90,8 +90,8 @@ applied to pointer event :
   #+end_src
 
 - applied matrix tranformation to relevant device :
-
-  - portrait mode
+  
+  - landscape mode
 
     #+begin_src sh
       xrandr -o 3
@@ -113,7 +113,6 @@ bus 0x18 vendor 0x416 product 0x2396 version 0x2040
 #+begin_src shell
 echo 18 416 2396 4 > /sys/module/hid_multitouch/drivers/hid\:hid-multitouch/new_id
 #+end_src
-
 
 
 ** separate mouse and touchscreen
@@ -405,7 +404,6 @@ EndSection
 * emulate multitouch
 
 in order to emulate multitouch, we need to detect new touch on touchscreen and move the pointer and move it back.
-
 
 #+begin_src shell :tangle multitouch.sh
 #!/bin/bash
