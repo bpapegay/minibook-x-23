@@ -1,5 +1,6 @@
 #+title: minibook x notes
 
+
 * wifi
 
 wifi doesn't work until i add theses options in =/etc/modprobe.d/iwl.conf=
@@ -13,6 +14,9 @@ options iwlmvm power_scheme=1
 
 * bluetooth
 
+with Version =20231211.f2e52a1c-1= of =linux-firmware=, missing files seems to have been added<
+
+** old fix  
 fix (on linux arch)
 
 #+begin_src sh
@@ -21,9 +25,10 @@ sudo ln -s /usr/lib/firmware/intel/ibt-1040-4150.sfi.zst /usr/lib/firmware/intel
 #+end_src
 
 
+
 * grub
 
-doesn't install properly. Boot into grub shell but no menu.
+doesn't install properly with arch default installation : Boot into grub shell but no menu.
 
 I have to enter the following commands to boot the kernel.
 
@@ -34,9 +39,7 @@ I have to enter the following commands to boot the kernel.
   boot
 #+end_src
 
-Install =grub-theme= and =grub-customizer= have fixed the problem.
-
-
+After that, install =grub-theme= and =grub-customizer= have fixed the problem, don't know what was wrong.
 
 * acpi and suspend state
 
@@ -88,6 +91,22 @@ applied to pointer event :
   #+begin_src sh
     xinput list
   #+end_src
+
+  #+RESULTS:
+  | ⎡ Virtual core pointer               | id=2  | [master pointer  (3)] |
+  | ⎜   ↳ Virtual core XTEST pointer     | id=4  | [slave  pointer  (2)] |
+  | ⎜   ↳ Goodix Capacitive TouchScreen  | id=9  | [slave  pointer  (2)] |
+  | ⎜   ↳ XXXX0000:05 0911:5288 Mouse    | id=10 | [slave  pointer  (2)] |
+  | ⎜   ↳ XXXX0000:05 0911:5288 Touchpad | id=11 | [slave  pointer  (2)] |
+  | ⎣ Virtual core keyboard              | id=3  | [master keyboard (2)] |
+  | ↳ Virtual core XTEST keyboard        | id=5  | [slave  keyboard (3)] |
+  | ↳ Video Bus                          | id=6  | [slave  keyboard (3)] |
+  | ↳ Power Button                       | id=7  | [slave  keyboard (3)] |
+  | ↳ Sleep Button                       | id=8  | [slave  keyboard (3)] |
+  | ↳ Intel HID events                   | id=12 | [slave  keyboard (3)] |
+  | ↳ Intel HID 5 button array           | id=13 | [slave  keyboard (3)] |
+  | ↳ Goodix Capacitive TouchScreen      | id=15 | [slave  keyboard (3)] |
+  | ↳ AT Translated Set 2 keyboard       | id=14 | [slave  keyboard (3)] |
 
 - applied matrix tranformation to relevant device :
   
@@ -202,7 +221,6 @@ xinput list
        ↳ Goodix Capacitive TouchScreen           	id=15	[slave  keyboard (17)]
        ↳ touchscreen XTEST keyboard              	id=19	[slave  keyboard (17)]
    #+end_example
-
 
 
 * sensor écran
@@ -403,7 +421,7 @@ EndSection
 
 * emulate multitouch
 
-in order to emulate multitouch, we need to detect new touch on touchscreen and move the pointer and move it back.
+in order to simulate multitouch in application that doesn't use it, we need to detect new touch on touchscreen, move the pointer , simulate a click and move it back.
 
 #+begin_src shell :tangle multitouch.sh
 #!/bin/bash
@@ -418,11 +436,14 @@ while IFS='$\n' read -r line; do
     catch_pointer_y="$(echo $line | grep -a ABS_MT_POSITION_Y | sed -En "s/^.*value (.*)/\1/p")"
     [[ -n $catch_slot ]] && slot=$catch_slot
     if [[ -n $catch_id ]] && [[ "$catch_id" -lt 0 ]]
+       # move released
     then
         if [ "$slot" -gt 0 ]
         then
+            # go back to original track
             xdotool mousemove ${STACK_POINTER_X[0]} ${STACK_POINTER_Y[0]} 
         else
+            # original track has been released
             xdotool mouseup 1
         fi
     fi  
@@ -430,11 +451,12 @@ while IFS='$\n' read -r line; do
     then
         # need to be fixed as evtest and xdotool don't use the same system
         # coordinates. Whem screen is rotated, the conversion formula
-        # need to be updated.
+        # is wrong and need to be updated.
         [[ -n $catch_pointer_y ]] && STACK_POINTER_X[slot]=$(( $catch_pointer_y ))
         [[ -n $catch_pointer_x ]] && STACK_POINTER_Y[slot]=$(( 1200 - $catch_pointer_x ))
         if [[ "$slot" -gt 0 ]] && [[ -n ${STACK_POINTER_X[$slot]} ]] && [[ -n ${STACK_POINTER_Y[$slot]} ]]
         then
+            # a new track has been started 
             xdotool mousemove ${STACK_POINTER_X[$slot]} ${STACK_POINTER_Y[$slot]} mousedown 1
         fi
     fi
@@ -444,7 +466,7 @@ done < <(stdbuf -oL evtest $DEVICE)
 
 #+RESULTS:
 
-* not tested
+** not tested
 
 - kernel params max_cstate and i915 enable_psr=0 are both red herrings.
 - the root cause of the ‘display tearing / wake-after-sleep /
