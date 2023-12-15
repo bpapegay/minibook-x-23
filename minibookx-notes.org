@@ -42,7 +42,7 @@ I have to enter the following commands to boot the kernel.
 After that, install =grub-theme= and =grub-customizer= have fixed the problem, don't know what was wrong.
 
 * acpi and suspend state
-
+  *note* : You should also update your desktop environment to use s2 sleeping when lid is closed. 
 by default, the selected mem suspend state is =s2= :
 
 #+begin_src shell :noeval :exports both
@@ -59,8 +59,8 @@ cat /sys/power/mem_sleep
 #+end_src
 
 #+RESULTS:
-: s2idle [deep]
-
+ : s2idle [deep]
+ 
 * screen orientation
 
 Orientation is not correct at login. I use lightdm, so I created a
