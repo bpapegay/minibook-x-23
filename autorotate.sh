@@ -9,19 +9,15 @@ function rotate_ms {
     case $1 in
         "normal")
             rotate 0
-            disable_devices
             ;;
         "right-up")
             rotate 1
-            enable_devices
             ;;
         "bottom-up")
             rotate 2
-            disable_devices
             ;;
         "left-up")
             rotate 3
-            disable_devices
             ;;
     esac
 }

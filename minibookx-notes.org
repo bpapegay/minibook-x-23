@@ -1,6 +1,5 @@
 #+title: minibook x notes
 
-
 * wifi
 
 wifi doesn't work until i add theses options in =/etc/modprobe.d/iwl.conf=
@@ -24,6 +23,8 @@ sudo ln -s /usr/lib/firmware/intel/ibt-1040-4150.ddc.zst /usr/lib/firmware/intel
 sudo ln -s /usr/lib/firmware/intel/ibt-1040-4150.sfi.zst /usr/lib/firmware/intel/ibt-0040-1050.sfi.zst
 #+end_src
 
+#+RESULTS:
+
 
 
 * grub
@@ -41,8 +42,10 @@ I have to enter the following commands to boot the kernel.
 
 After that, install =grub-theme= and =grub-customizer= have fixed the problem, don't know what was wrong.
 
+
 * acpi and suspend state
-  *note* : You should also update your desktop environment to use s2 sleeping when lid is closed. 
+
+*note* : You should also update your desktop environment to use s2 sleeping when lid is closed.
 by default, the selected mem suspend state is =s2= :
 
 #+begin_src shell :noeval :exports both
@@ -61,6 +64,7 @@ cat /sys/power/mem_sleep
 #+RESULTS:
  : s2idle [deep]
  
+
 * screen orientation
 
 Orientation is not correct at login. I use lightdm, so I created a
@@ -126,7 +130,84 @@ applied to pointer event :
       xinput set-prop 9 --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
     #+end_src
 
+
+** tablet switch
+
+#+begin_src sh
+  #! /bin/bash -
+
+  # We need to test if we have both sensors
+  # if not we need to add the second one
+  # Both should exist (Thanks to https://github.com/sleeply4cat for pointing me in this direction)
+
+  # /sys/bus/iio/devices/iio:device0/in_accel_x_raw (Lid)
+  # /sys/bus/iio/devices/iio:device1/in_accel_x_raw (Base)
+  #
+  # echo mxc4005 0x15 > /sys/bus/i2c/devices/i2c-0/new_device
+
+  if ! grep -q 0 "/sys/bus/iio/devices/iio:device1/in_accel_x_raw"; then
+     echo mxc4005 0x15 > /sys/bus/i2c/devices/i2c-12/new_device
+  fi
+
+  # For this script we assume that /tmp exist and is writable
+  PIDFILE="/tmp/kbdlock.pid"
+  STATEFILE="/tmp/kbdlock.state"
+  CURRENTSTATE=0
+  KBDEVENT=`ls /dev/input/by-path/ -la | grep kbd | awk '{print $NF}' | sed "s/..\///"`
+
+  # rm is only for a restart of the service
+  # Create a fresh pid file
+  rm $PIDFILE
+  echo "" > $PIDFILE
+  chmod 777 $PIDFILE
+
+  # Create a fresh state file
+  rm $STATEFILE
+  echo 0 > $STATEFILE
+  chmod 777 $STATEFILE
+
+  # Make lock and unlock function
+  function kbd_lock {
+      echo "State changed to 1"
+      evtest --grab "/dev/input/$KBDEVENT" > /dev/null &pid=$!
+      echo $pid > $PIDFILE
+  }
+
+  function kbd_unlock {
+    echo "State changed to 0"
+    cat "$PIDFILE" | xargs kill -9 >/dev/null 2>&1
+    #kill -9 `cat "$PIDFILE"` > /dev/null 2>&1
+    echo "" > $PIDFILE
+  }
+
+  while true
+  do
+      # Here we create an endless loop to test the state file.
+      # if it contains a 0 the keyboard should not be locked
+      # if it contains a 1 the keyboard should be locked
+      if grep -q 0 "$STATEFILE"; then
+          if [ $CURRENTSTATE = 1 ]; then
+              # State changed to 0
+              # We will unlock the keyboard here
+              kbd_unlock
+              # and we change the state to the new current state
+              CURRENTSTATE=0
+          fi
+      else
+          if [ $CURRENTSTATE = 0 ]; then
+              # State changed to 1
+              # We will lock the keyboard here
+              kbd_lock
+              # and we change the state to the new current state
+              CURRENTSTATE=1
+          fi
+      fi
+    sleep 1
+  done
+#+end_src
 ** FIXME multitouch (not functionnal)
+
+*** test 1 (not functionnal)
 
 bus 0x18 vendor 0x416 product 0x2396 version 0x2040
 #+begin_src shell
@@ -134,6 +215,20 @@ echo 18 416 2396 4 > /sys/module/hid_multitouch/drivers/hid\:hid-multitouch/new_
 #+end_src
 
 
+*** test 2 :
+
+add  /etc/X11/xorg.conf.d/99-touchscreen.conf  with
+
+#+begin_src org
+Section "InputClass"
+  Identifier    "TouchScreen"
+  MatchProduct  "Goodix Capacitive TouchScreen"
+  Driver        "libinput"
+  Option        "Tapping" "true"
+  Option        "TappingDrag" "true"
+  Option        "TransformationMatrix"   "0 1 0 -1 0 1 0 0 1"
+EndSection
+#+end_src
 ** separate mouse and touchscreen
 
 #+begin_src shell :exports both :results pp
@@ -195,9 +290,9 @@ xinput list
 
 2. attach touchscreen to new master
    #+begin_src shell :exports both :results pp
-xinput reattach 9 16
-xinput reattach 15 17
-xinput list
+     xinput reattach 9 16
+     xinput reattach 15 17
+     xinput list
    #+end_src
 
    #+RESULTS:
@@ -223,7 +318,7 @@ xinput list
    #+end_example
 
 
-* sensor écran
+* screen auto rotation
 
 - acpi contains a device MDA6655 which seems working.
   - adding "mda6655" in kernel source's =mxc4005.c= file made it functionnal.
@@ -240,13 +335,15 @@ udevadm info --export-db | grep iio
   U: iio
   T: iio_device
   N: iio:device0
-  E: DEVPATH=/devices/pci0000:00/0000:00:15.1/i2c_designware.1/i2c-13/i2c-MDA6655:00/iio:device0/
+  E: DEVPATH=/devices/pci0000:00/0000:00:15.1/i2c_designware.1/i2c-13/i2c-MDA6655:00/iio:device0
   E: SUBSYSTEM=iio
   E: DEVNAME=/dev/iio:device0
   E: DEVTYPE=iio_device
   E: IIO_SENSOR_PROXY_TYPE=iio-poll-accel iio-buffer-accel
   E: SYSTEMD_WANTS=iio-sensor-proxy.service
   #+end_example
+
+
 - =monitor-sensor= of =iio-sensor-proxy= package print theses orientations :
   - right-up
   - normal
@@ -326,19 +423,15 @@ function rotate_ms {
     case $1 in
         "normal")
             rotate 0
-            disable_devices
             ;;
         "right-up")
             rotate 1
-            enable_devices
             ;;
         "bottom-up")
             rotate 2
-            disable_devices
             ;;
         "left-up")
             rotate 3
-            disable_devices
             ;;
     esac
 }
@@ -385,6 +478,85 @@ while IFS='$\n' read -r line; do
 done < <(stdbuf -oL monitor-sensor)
   #+end_src
 
+in fact, the device has two sensor : one for the lid and the other for the base. But the second one is disable by default. To be able to read it's value, this snippet is required :
+
+#+begin_src shell
+if ! grep -q 0 "/sys/bus/iio/devices/iio:device1/in_accel_x_raw"; then
+     echo mxc4005 0x15 > /sys/bus/i2c/devices/i2c-12/new_device
+fi
+#+end_src
+
+In my case, lid sensor has the index 13 on i2c bus, and then unit sensor has the index 12. If your lid sensor has the index 1, i bet unit index is 0.
+
+So we're going to read the values of two vector in xOz plane (Ox is the vertical axes, Oz an horizontal axis ...)
+
+let's read this values with python :
+
+#+begin_src python :tangle autokb.py
+  #!/usr/bin/python3
+  import subprocess
+  from time import sleep
+
+  LID = "device0"
+  UNIT = "device1"
+  X_AXIS = 'x'
+  Z_AXIS = 'z'
+  KB_DISABLED = False
+  DEVICES = ("XXXX0000:05 0911:5288 Touchpad", "AT Translated Set 2 keyboard")
+  SENSOR_FILE = "/sys/bus/iio/devices/iio:{}/in_accel_{}_raw"
+  DEBUG = False
+
+  def sensor_read(device: str, axis: str):
+      with open(SENSOR_FILE.format(device, axis), 'r') as f_in:
+          res = int(f_in.readline().strip())
+      return res
+
+  def vector_for(device: str) -> tuple[int, int]:
+      return tuple(sensor_read(device, axis)
+                   for axis in (X_AXIS, Z_AXIS))
+
+  def det(v: tuple[int, int], w: tuple[int, int]) -> int:
+      vx, vy = v
+      wx, wy = w
+      return vx * wy - wx * vy
+
+  def dot(v: tuple[int, int], w: tuple[int, int]) -> int:
+      vx, vy = v
+      wx, wy = w
+      return vx * wx + vy * wy
+
+  def devices_set_disable(disable: bool):
+      global KB_DISABLED
+      verb = "disable" if disable else "enable"
+      for device in DEVICES:
+          retcode = subprocess.call(f"xinput {verb} \"{device}\"",
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL,
+                                    shell=True)
+      KB_DISABLED = disable
+
+
+  if __name__ == '__main__':
+      while True:
+          vlid = vector_for(LID)
+          vunit = vector_for(UNIT)
+          if DEBUG:
+              print(f"vlid={vlid}, vunit={vunit}, det={det(vlid, vunit)}, dot={dot(vlid, vunit)}")
+          if det(vlid, vunit) < 0 and dot(vlid, vunit) > 0:
+              if not KB_DISABLED:
+                  print("disabling devices ...")
+                  devices_set_disable(True)
+          else:
+              if KB_DISABLED:
+                  print("enabling devices ...")
+                  devices_set_disable(False)
+          sleep(1)
+#+end_src
+
+#+RESULTS:
+: -959
+
+
 
 * lightdm tap to click
 
@@ -400,11 +572,11 @@ create a file =/etc/X11/xorg.conf.d/40-libinput.conf=
   EndSection
 #+end_src
 
+
 * graphic drivers
 
 ** using git modesetting
-compile xorg-server-git from AUR seems to fix the problem in conjonction with
-next section.
+compile xorg-server-git from AUR seems to fix the tearing problem in conjonction with next section.
 
 ** xorg server parameter
 Intel iGPUs

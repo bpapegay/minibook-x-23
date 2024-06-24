@@ -10,11 +10,14 @@ while IFS='$\n' read -r line; do
     catch_pointer_y="$(echo $line | grep -a ABS_MT_POSITION_Y | sed -En "s/^.*value (.*)/\1/p")"
     [[ -n $catch_slot ]] && slot=$catch_slot
     if [[ -n $catch_id ]] && [[ "$catch_id" -lt 0 ]]
+       # move released
     then
         if [ "$slot" -gt 0 ]
         then
+            # go back to original track
             xdotool mousemove ${STACK_POINTER_X[0]} ${STACK_POINTER_Y[0]} 
         else
+            # original track has been released
             xdotool mouseup 1
         fi
     fi  
@@ -22,11 +25,12 @@ while IFS='$\n' read -r line; do
     then
         # need to be fixed as evtest and xdotool don't use the same system
         # coordinates. Whem screen is rotated, the conversion formula
-        # need to be updated.
+        # is wrong and need to be updated.
         [[ -n $catch_pointer_y ]] && STACK_POINTER_X[slot]=$(( $catch_pointer_y ))
         [[ -n $catch_pointer_x ]] && STACK_POINTER_Y[slot]=$(( 1200 - $catch_pointer_x ))
         if [[ "$slot" -gt 0 ]] && [[ -n ${STACK_POINTER_X[$slot]} ]] && [[ -n ${STACK_POINTER_Y[$slot]} ]]
         then
+            # a new track has been started 
             xdotool mousemove ${STACK_POINTER_X[$slot]} ${STACK_POINTER_Y[$slot]} mousedown 1
         fi
     fi

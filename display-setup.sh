@@ -1,3 +1,3 @@
-  #!/bin/bash
-  xrandr -o right
-  exit 0
+#!/bin/bash
+xrandr -o right
+exit 0
