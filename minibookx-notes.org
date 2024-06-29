@@ -488,7 +488,7 @@ fi
 
 In my case, lid sensor has the index 13 on i2c bus, and then unit sensor has the index 12. If your lid sensor has the index 1, i bet unit index is 0.
 
-So we're going to read the values of two vector in xOz plane (Ox is the vertical axes, Oz an horizontal axis ...)
+So we're going to read the values of two vector (one for the lid and the other for the unit) in xOz plane (Ox is the vertical axis, Oz an horizontal axis ...)
 
 let's read this values with python :
 
@@ -496,43 +496,88 @@ let's read this values with python :
   #!/usr/bin/python3
   import subprocess
   from time import sleep
+  from math import sqrt
 
   LID = "device0"
   UNIT = "device1"
   X_AXIS = 'x'
+  Y_AXIS = 'y'
   Z_AXIS = 'z'
   KB_DISABLED = False
   DEVICES = ("XXXX0000:05 0911:5288 Touchpad", "AT Translated Set 2 keyboard")
   SENSOR_FILE = "/sys/bus/iio/devices/iio:{}/in_accel_{}_raw"
   DEBUG = False
+  ORIENTATION_TRSHLD = 0.16
+  DIRECTION_TRSHLD = -0.7
+
 
   def sensor_read(device: str, axis: str):
       with open(SENSOR_FILE.format(device, axis), 'r') as f_in:
           res = int(f_in.readline().strip())
       return res
 
-  def vector_for(device: str) -> tuple[int, int]:
-      return tuple(sensor_read(device, axis)
-                   for axis in (X_AXIS, Z_AXIS))
 
-  def det(v: tuple[int, int], w: tuple[int, int]) -> int:
-      vx, vy = v
-      wx, wy = w
-      return vx * wy - wx * vy
+  def vector_for(device: str) -> tuple[float, float]:
+      return unit(tuple(sensor_read(device, axis)
+                        for axis in (X_AXIS, Z_AXIS, Y_AXIS)))
 
-  def dot(v: tuple[int, int], w: tuple[int, int]) -> int:
-      vx, vy = v
-      wx, wy = w
-      return vx * wx + vy * wy
+
+  def det2(v: tuple[int, int], w: tuple[int, int]) -> int:
+      vx, vy, _ = v
+      wx, wy, _ = w
+      res =  vx * wy - wx * vy
+      return res
+
+
+  def det3(u: tuple[int, int, int],
+           v: tuple[int, int, int],
+           w: tuple[int, int, int]) -> int:
+      ux, uy, uz = u
+      vx, vy, vz = v
+      wx, wy, wz = w
+      res =  (ux * vy * wz + vx * wy * uz + wx * uy * vz) -\
+          (wx * vy * uz + ux * wy * vz + vx * uy * wz)
+      return res
+
+
+  def dot(v: tuple[int, int], w: tuple[int, int], truncate: bool = False) -> int:
+      vx, vy, _ = v
+      wx, wy, _ = w
+      res =  vx * wx + vy * wy
+      if (not truncate) and len(v) > 2 and len(w) > 2:
+          res = res + v[2] * w[2]
+      return res
+
+
+  def vect(v: tuple[float], w: tuple[float]) -> tuple[float]:
+      vx, vy, vz = v
+      wx, wy, wz = w
+      return (vy * wz - wy * vz,
+              vz * wx - wz * vx,
+              vx * wy - wx * vy)
+
+
+  def sqnorm(v: tuple[int]) -> int:
+      return dot(v, v)
+
+
+  def norm(v: tuple[int]) -> float:
+      return sqrt(sqnorm(v))
+
+
+  def unit(v: tuple[int]) -> tuple[float]:
+      n = norm(v)
+      return tuple(round(c / n, 2) for c in v)
+
 
   def devices_set_disable(disable: bool):
       global KB_DISABLED
       verb = "disable" if disable else "enable"
       for device in DEVICES:
-          retcode = subprocess.call(f"xinput {verb} \"{device}\"",
-                                    stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL,
-                                    shell=True)
+          subprocess.call(f"xinput {verb} \"{device}\"",
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL,
+                          shell=True)
       KB_DISABLED = disable
 
 
@@ -540,9 +585,11 @@ let's read this values with python :
       while True:
           vlid = vector_for(LID)
           vunit = vector_for(UNIT)
+          thedot = dot(vlid, vunit, True)
+          thedet = det2(vlid, vunit)
           if DEBUG:
-              print(f"vlid={vlid}, vunit={vunit}, det={det(vlid, vunit)}, dot={dot(vlid, vunit)}")
-          if det(vlid, vunit) < 0 and dot(vlid, vunit) > 0:
+              print(f"vlid={vlid}, vunit={vunit}, dot={thedot:.2f}, det={thedet:.2f}")
+          if thedot > DIRECTION_TRSHLD and thedet < ORIENTATION_TRSHLD:
               if not KB_DISABLED:
                   print("disabling devices ...")
                   devices_set_disable(True)
@@ -556,6 +603,7 @@ let's read this values with python :
 #+RESULTS:
 : -959
 
+this script read the two vector coordinates and then compute their cross and vectorial product. When the cross product is positive (same direction) and the vectorial product is negative (rerverse orientation), then we disable devices using =xinput=.
 
 
 * lightdm tap to click
