@@ -13,7 +13,7 @@ options iwlmvm power_scheme=1
 
 * bluetooth
 
-with Version =20231211.f2e52a1c-1= of =linux-firmware=, missing files seems to have been added<
+with Version =20231211.f2e52a1c-1= of =linux-firmware=, missing files seems to have been added.
 
 ** old fix  
 fix (on linux arch)
@@ -87,8 +87,8 @@ you have to add it in lightdm.conf configuration file, by uncommenting this line
 
 ** rotation
 
-In order to properly calibrate touchscreen, a transformation must be
-applied to pointer event :
+In order to properly calibrate touchscreen, a transformation must be applied to
+pointer event :
 
 - first determine pointer device :
 
@@ -205,6 +205,7 @@ applied to pointer event :
     sleep 1
   done
 #+end_src
+
 ** FIXME multitouch (not functionnal)
 
 *** test 1 (not functionnal)
